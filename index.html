@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LabNet Escola - Laboratório Virtual de Redes</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'media',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#f0f9ff', 500: '#0284c7', 600: '#0369a1', 700: '#075985' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Estilos do Terminal de Simulação Cisco/Windows */
+    .cli-terminal {
+      font-family: 'Courier New', Courier, monospace;
+      background-color: #0c0d10;
+      color: #38ef7d;
+      text-shadow: 0 0 2px rgba(56, 239, 125, 0.4);
+    }
+    .cli-input {
+      background: transparent;
+      outline: none;
+      border: none;
+      color: #fff;
+      font-family: inherit;
+      width: 100%;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #4b5563;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen flex flex-col transition-colors">
+
+  <!-- ================= NAVBAR ================= -->
+  <nav class="bg-brand-600 text-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="navigate('home')">
+        <div class="w-10 h-10 bg-white text-brand-600 font-bold rounded-lg flex items-center justify-center text-xl shadow">LN</div>
+        <div>
+          <span class="font-extrabold text-lg tracking-wide block leading-tight">LabNet Escola</span>
+          <span class="text-xs text-sky-100 block">Técnico em Redes de Computadores</span>
+        </div>
+      </div>
+      <div id="nav-user-links" class="flex items-center space-x-3">
+        <!-- Links dinâmicos por estado de autenticação -->
+      </div>
+    </div>
+  </nav>
+
+  <!-- ================= CONTAINER PRINCIPAL ================= -->
+  <main id="app-root" class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+    <!-- Telas renderizadas via JavaScript -->
+  </main>
+
+  <!-- ================= RODAPÉ ================= -->
+  <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-4 text-center text-xs text-gray-500">
+    <p>LabNet Escola &copy; 2026 - Desenvolvido para o Ensino Técnico Integrado em Redes de Computadores.</p>
+    <p class="mt-1">Ambiente protegido em conformidade com a LGPD. Coleta restrita a nome institucional e e-mail acadêmico.</p>
+  </footer>
+
+  <!-- ================= MODAL LGPD E TERMOS ================= -->
+  <div id="modal-lgpd" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white dark:bg-gray-800 max-w-lg w-full rounded-xl shadow-2xl p-6 space-y-4">
+      <h3 class="text-xl font-bold text-gray-900 dark:text-white">Termo de Uso e Privacidade (LGPD)</h3>
+      <div class="text-sm text-gray-600 dark:text-gray-300 space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+        <p>Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018):</p>
+        <p>1. <strong>Dados coletados:</strong> Nome completo e endereço de e-mail estritamente para identificação acadêmica e vínculo com a turma.</p>
+        <p>2. <strong>Finalidade:</strong> Acompanhamento de progresso de aprendizagem pelo professor da disciplina.</p>
+        <p>3. <strong>Segurança:</strong> As senhas são protegidas por hash criptográfico e nenhuma credencial é armazenada em texto plano.</p>
+      </div>
+      <div class="flex justify-end pt-2">
+        <button onclick="document.getElementById('modal-lgpd').classList.add('hidden')" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg text-sm">Entendido e Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= JAVASCRIPT: MOTOR E CONTROLADOR ================= -->
+  <script>
+    /* ====================================================================
+       1. MOTOR DE SIMULAÇÃO DE REDE (PURE ENGINE TESTÁVEL)
+       ==================================================================== */
+    class NetworkEngine {
+      constructor() {
+        this.dnsDatabase = {
+          'www.escola.local': '192.168.100.10',
+          'escola.local': '192.168.100.10',
+          'impressora.escola.local': '192.168.100.20'
+        };
+
+        this.devices = {
+          'PC-L1-01': { type: 'pc', vlan: 10, defaultIp: '192.168.10.11', mask: '255.255.255.0', gw: '192.168.10.1', sw: 'SW-LAB1' },
+          'PC-L2-01': { type: 'pc', vlan: 20, defaultIp: '192.168.20.11', mask: '255.255.255.0', gw: '192.168.20.1', sw: 'SW-LAB2' },
+          'PC-SECRETARIA': { type: 'pc', vlan: 30, defaultIp: '192.168.30.11', mask: '255.255.255.0', gw: '192.168.30.1', sw: 'SW-PRINCIPAL' },
+          'PC-ADMIN': { type: 'pc', vlan: 30, defaultIp: '192.168.30.12', mask: '255.255.255.0', gw: '192.168.30.1', sw: 'SW-PRINCIPAL' },
+          'PC-PROF': { type: 'pc', vlan: 40, defaultIp: '192.168.40.11', mask: '255.255.255.0', gw: '192.168.40.1', sw: 'SW-PRINCIPAL' },
+          'PC-BIBLIOTECA': { type: 'pc', vlan: 50, defaultIp: '192.168.50.11', mask: '255.255.255.0', gw: '192.168.50.1', sw: 'SW-PRINCIPAL' },
+          'LAPTOP-PROF': { type: 'pc', vlan: 60, defaultIp: '192.168.60.11', mask: '255.255.255.0', gw: '192.168.60.1', sw: 'SW-PRINCIPAL' },
+          'Server-Escola': { type: 'server', vlan: 100, defaultIp: '192.168.100.10', mask: '255.255.255.0', gw: '192.168.100.1', sw: 'SW-PRINCIPAL' },
+          'Impressora-Rede': { type: 'printer', vlan: 100, defaultIp: '192.168.100.20', mask: '255.255.255.0', gw: '192.168.100.1', sw: 'SW-PRINCIPAL' },
+          'SW-PRINCIPAL': { type: 'switch_core', ip: '192.168.99.2', mask: '255.255.255.0', vlan: 99 },
+          'SW-LAB1': { type: 'switch_access', ip: '192.168.99.3', mask: '255.255.255.0', vlan: 99 },
+          'SW-LAB2': { type: 'switch_access', ip: '192.168.99.4', mask: '255.255.255.0', vlan: 99 },
+          'RT-BORDA': { type: 'router', wanIp: '203.0.113.2', wanMask: '255.255.255.252' }
+        };
+
+        this.faultsDef = {
+          'link_lab1': {
+            realCause: 'SW-PRINCIPAL Fa0/2 em shutdown',
+            symptom: 'Laboratório 1 sem acesso à rede e aos servidores.',
+            fix: 'SW-PRINCIPAL(config)# interface FastEthernet0/2\nSW-PRINCIPAL(config-if)# no shutdown'
+          },
+          'link_lab2': {
+            realCause: 'SW-PRINCIPAL Fa0/3 em shutdown',
+            symptom: 'Laboratório 2 sem acesso à rede.',
+            fix: 'SW-PRINCIPAL(config)# interface FastEthernet0/3\nSW-PRINCIPAL(config-if)# no shutdown'
+          },
+          'trunk_router': {
+            realCause: 'RT-BORDA Gi0/1 em shutdown',
+            symptom: 'Nenhum setor acessa servidores ou internet; computadores novos com IP 169.254.x.x.',
+            fix: 'RT-BORDA(config)# interface GigabitEthernet0/1\nRT-BORDA(config-if)# no shutdown'
+          },
+          'isp_down': {
+            realCause: 'RT-BORDA Gi0/0 em shutdown',
+            symptom: 'Rede interna e servidores funcionam perfeitamente, mas nenhum setor navega na Internet.',
+            fix: 'RT-BORDA(config)# interface GigabitEthernet0/0\nRT-BORDA(config-if)# no shutdown'
+          },
+          'dhcp_lab1': {
+            realCause: 'Pool DHCP LAB1 ausente no RT-BORDA',
+            symptom: 'Lab 1 com IP 169.254.x.x apesar de cabos e interfaces estarem todos Up.',
+            fix: 'RT-BORDA(config)# ip dhcp pool POOL_LAB1\nRT-BORDA(dhcp-config)# network 192.168.10.0 255.255.255.0\nRT-BORDA(dhcp-config)# default-router 192.168.10.1\nRT-BORDA(dhcp-config)# dns-server 192.168.100.10'
+          },
+          'acl_removed': {
+            realCause: 'Regra restritiva ausente na ACL_ALUNOS',
+            symptom: 'Alunos do Lab 1 conseguem pingar o PC do Administrativo (falha de isolamento de segurança).',
+            fix: 'RT-BORDA(config)# ip access-list extended ACL_ALUNOS\nRT-BORDA(config-ext-nacl)# deny ip any 192.168.30.0 0.0.0.255'
+          },
+          'nat_missing': {
+            realCause: 'NAT overload (PAT) não configurado no RT-BORDA',
+            symptom: 'Comunicação interna 100% operacional, mas ping para 8.8.8.8 dá timeout contínuo.',
+            fix: 'RT-BORDA(config)# ip nat inside source list 10 interface Gi0/0 overload'
+          },
+          'dns_down': {
+            realCause: 'Serviço DNS inoperante no Server-Escola',
+            symptom: 'O portal da escola abre digitando 192.168.100.10, mas falha digitando www.escola.local.',
+            fix: 'Server-Escola# service dns start'
+          }
+        };
+
+        this.currentFault = 'normal'; // 'normal' ou id da falha ativa
+      }
+
+      setFault(faultId) {
+        this.currentFault = (faultId && this.faultsDef[faultId]) ? faultId : 'normal';
+      }
+
+      // Obtém IP real do PC considerando DHCP e integridade de enlace
+      getDeviceIpConfig(devName) {
+        const dev = this.devices[devName];
+        if (!dev || dev.type !== 'pc') return null;
+
+        // Falhas de link físico e DHCP geram APIPA 169.254.x.x
+        if (dev.vlan === 10 && (this.currentFault === 'link_lab1' || this.currentFault === 'dhcp_lab1')) {
+          return { ip: '169.254.12.85', mask: '255.255.0.0', gw: '0.0.0.0', dns: '0.0.0.0' };
+        }
+        if (dev.vlan === 20 && this.currentFault === 'link_lab2') {
+          return { ip: '169.254.91.44', mask: '255.255.0.0', gw: '0.0.0.0', dns: '0.0.0.0' };
+        }
+        if (this.currentFault === 'trunk_router') {
+          return { ip: '169.254.100.3', mask: '255.255.0.0', gw: '0.0.0.0', dns: '0.0.0.0' };
+        }
+
+        return { ip: dev.defaultIp, mask: dev.mask, gw: dev.gw, dns: '192.168.100.10' };
+      }
+
+      // Função pura de teste de conectividade (L2, L3, ACL e Internet)
+      evaluatePing(srcDevName, destTarget) {
+        const src = this.devices[srcDevName];
+        if (!src) return { success: false, reason: 'Dispositivo de origem desconhecido.' };
+
+        const srcConf = this.getDeviceIpConfig(srcDevName);
+        if (srcConf && srcConf.ip.startsWith('169.254.')) {
+          return { success: false, reason: 'Request timed out.' };
+        }
+
+        // Resolução reversa de IP do destino
+        let destIp = destTarget;
+        if (this.dnsDatabase[destTarget]) {
+          if (this.currentFault === 'dns_down') {
+            return { success: false, reason: 'Ping request could not find host ' + destTarget + '. Please check the name and try again.' };
+          }
+          destIp = this.dnsDatabase[destTarget];
+        }
+
+        const isInternet = ['8.8.8.8', '8.8.4.4', '203.0.113.1'].includes(destIp);
+
+        // 1. Tratamento de tráfego de saída para a Internet
+        if (isInternet) {
+          if (this.currentFault === 'isp_down') {
+            return { success: false, reason: `Reply from ${srcConf.gw}: Destination host unreachable.` };
+          }
+          if (this.currentFault === 'nat_missing') {
+            return { success: false, reason: 'Request timed out.' };
+          }
+          if (this.currentFault === 'trunk_router') {
+            return { success: false, reason: 'Request timed out.' };
+          }
+          // Alunos e professores acessam normalmente a internet
+          return { success: true, ttl: 126, rtt: '18ms' };
+        }
+
+        // 2. Destino é um dos nós da rede interna
+        let destDevName = Object.keys(this.devices).find(k => (this.devices[k].defaultIp === destIp || this.devices[k].ip === destIp));
+        const destGwMatch = destIp.endsWith('.1') && destIp.startsWith('192.168.');
+
+        // Ping no gateway da própria rede
+        if (destGwMatch) {
+          if (this.currentFault === 'trunk_router') return { success: false, reason: 'Request timed out.' };
+          if (src.vlan === 10 && this.currentFault === 'link_lab1') return { success: false, reason: 'Request timed out.' };
+          if (src.vlan === 20 && this.currentFault === 'link_lab2') return { success: false, reason: 'Request timed out.' };
+          return { success: true, ttl: 255, rtt: '1ms' };
+        }
+
+        if (!destDevName) {
+          return { success: false, reason: 'Request timed out.' };
+        }
+
+        const destDev = this.devices[destDevName];
+
+        // 3. Mesma VLAN (L2)
+        if (src.vlan === destDev.vlan) {
+          if (src.sw === destDev.sw) {
+            return { success: true, ttl: 128, rtt: '1ms' };
+          }
+          // Switches de acesso passam pelo SW-PRINCIPAL
+          if (src.sw === 'SW-LAB1' && this.currentFault === 'link_lab1') return { success: false, reason: 'Request timed out.' };
+          if (destDev.sw === 'SW-LAB1' && this.currentFault === 'link_lab1') return { success: false, reason: 'Request timed out.' };
+          return { success: true, ttl: 128, rtt: '2ms' };
+        }
+
+        // 4. Roteamento Inter-VLAN (L3)
+        if (this.currentFault === 'trunk_router') {
+          return { success: false, reason: 'Request timed out.' };
+        }
+        if (src.sw === 'SW-LAB1' && this.currentFault === 'link_lab1') return { success: false, reason: 'Request timed out.' };
+        if (destDev.sw === 'SW-LAB1' && this.currentFault === 'link_lab1') return { success: false, reason: 'Request timed out.' };
+
+        // 5. Políticas de Segurança (ACLs no RT-BORDA)
+        const alunoVlans = [10, 20, 50, 60];
+        if (alunoVlans.includes(src.vlan)) {
+          // Servidores e impressoras liberados
+          if (destDev.vlan === 100) return { success: true, ttl: 127, rtt: '3ms' };
+
+          // Tentativa de invasão ou acesso a setores restritos
+          if ([30, 40, 99].includes(destDev.vlan) || alunoVlans.includes(destDev.vlan)) {
+            if (this.currentFault === 'acl_removed' && destDev.vlan === 30) {
+              // Brecha explorada com sucesso
+              return { success: true, ttl: 127, rtt: '3ms' };
+            }
+            return { success: false, reason: `Reply from ${srcConf.gw}: Destination host unreachable.` };
+          }
+        }
+
+        if (src.vlan === 40) { // Professores
+          if ([30, 99].includes(destDev.vlan)) {
+            return { success: false, reason: `Reply from ${srcConf.gw}: Destination host unreachable.` };
+          }
+          return { success: true, ttl: 127, rtt: '3ms' };
+        }
+
+        if (src.vlan === 30) { // Administrativo: acesso total
+          return { success: true, ttl: 127, rtt: '3ms' };
+        }
+
+        return { success: true, ttl: 127, rtt: '3ms' };
+      }
+
+      // Execução dos comandos CLI suportados
+      executeCommand(device, rawCmd) {
+        const cmd = rawCmd.trim();
+        const parts = cmd.split(/\s+/);
+        const action = parts[0].toLowerCase();
+        const devInfo = this.devices[device];
+
+        if (!cmd) return '';
+
+        if (action === 'help') {
+          if (devInfo.type === 'pc') {
+            return "Comandos disponíveis:\n  ipconfig\n  ipconfig /all\n  ping <ip | nome>\n  tracert <ip | nome>\n  nslookup <nome>\n  clear";
+          } else {
+            return "Comandos disponíveis:\n  show ip interface brief\n  show vlan brief\n  show access-lists\n  show ip nat statistics\n  show ip dhcp pool\n  clear";
+          }
+        }
+
+        // ================= CLI PC =================
+        if (devInfo.type === 'pc') {
+          if (action === 'ipconfig') {
+            const conf = this.getDeviceIpConfig(device);
+            if (parts[1] === '/all') {
+              return `Windows IP Configuration\n\n   Host Name . . . . . . . . . . . . : ${device}\n   Primary Dns Suffix  . . . . . . . : escola.local\n   DHCP Enabled. . . . . . . . . . . : Yes\n   Autoconfiguration IPv4 Address. . : ${conf.ip}\n   Subnet Mask . . . . . . . . . . . : ${conf.mask}\n   Default Gateway . . . . . . . . . : ${conf.gw}\n   DNS Servers . . . . . . . . . . . : ${conf.dns}`;
+            }
+            return `Windows IP Configuration\n\nEthernet adapter Ethernet0:\n   IPv4 Address. . . . . . . . . . . : ${conf.ip}\n   Subnet Mask . . . . . . . . . . . : ${conf.mask}\n   Default Gateway . . . . . . . . . : ${conf.gw}`;
+          }
+
+          if (action === 'ping') {
+            const target = parts[1];
+            if (!target) return 'Uso: ping <ip ou hostname>';
+            const res = this.evaluatePing(device, target);
+            if (res.success) {
+              return `Pinging ${target} with 32 bytes of data:\nReply from ${target}: bytes=32 time=${res.rtt} TTL=${res.ttl}\nReply from ${target}: bytes=32 time=${res.rtt} TTL=${res.ttl}\nReply from ${target}: bytes=32 time=${res.rtt} TTL=${res.ttl}\nReply from ${target}: bytes=32 time=${res.rtt} TTL=${res.ttl}\n\nPing statistics for ${target}:\n    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)`;
+            } else {
+              return `Pinging ${target} with 32 bytes of data:\n${res.reason}\n${res.reason}\n${res.reason}\n${res.reason}\n\nPing statistics for ${target}:\n    Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)`;
+            }
+          }
+
+          if (action === 'tracert') {
+            const target = parts[1];
+            if (!target) return 'Uso: tracert <ip ou hostname>';
+            const res = this.evaluatePing(device, target);
+            if (!res.success) {
+              return `Tracing route to ${target} over a maximum of 30 hops:\n  1  ${res.reason}\nTrace complete.`;
+            }
+            const conf = this.getDeviceIpConfig(device);
+            if (['8.8.8.8', '8.8.4.4'].includes(target)) {
+              return `Tracing route to ${target} over a maximum of 30 hops:\n  1    <1 ms    <1 ms    <1 ms  ${conf.gw}\n  2     8 ms     7 ms     8 ms  203.0.113.1\n  3    18 ms    17 ms    18 ms  8.8.8.8\nTrace complete.`;
+            }
+            return `Tracing route to ${target} over a maximum of 30 hops:\n  1    <1 ms    <1 ms    <1 ms  ${conf.gw}\n  2     1 ms     1 ms     1 ms  ${target}\nTrace complete.`;
+          }
+
+          if (action === 'nslookup') {
+            const host = parts[1];
+            if (!host) return 'Uso: nslookup <hostname>';
+            if (this.currentFault === 'dns_down') {
+              return 'DNS request timed out.\n    timeout was 2 seconds.\n*** Can\'t find server name for address 192.168.100.10: Timed out';
+            }
+            const resolved = this.dnsDatabase[host];
+            if (resolved) {
+              return `Server:  server-escola.escola.local\nAddress:  192.168.100.10\n\nName:    ${host}\nAddress:  ${resolved}`;
+            }
+            return `*** server-escola.escola.local can't find ${host}: Non-existent domain`;
+          }
+
+          return `Comando não suportado para PC: "${action}". Digite help para a lista.`;
+        }
+
+        // ================= CLI EQUIPAMENTOS CISCO =================
+        const fullCmd = cmd.toLowerCase();
+
+        if (fullCmd === 'show ip interface brief') {
+          if (device === 'RT-BORDA') {
+            const g00Status = (this.currentFault === 'isp_down') ? 'administratively down down' : 'up                    up';
+            const g01Status = (this.currentFault === 'trunk_router') ? 'administratively down down' : 'up                    up';
+            return `Interface                  IP-Address      OK? Method Status                Protocol\nGigabitEthernet0/0         203.0.113.2     YES manual ${g00Status}\nGigabitEthernet0/1         unassigned      YES manual ${g01Status}\nGigabitEthernet0/1.10      192.168.10.1    YES manual up                    up\nGigabitEthernet0/1.20      192.168.20.1    YES manual up                    up\nGigabitEthernet0/1.30      192.168.30.1    YES manual up                    up\nGigabitEthernet0/1.40      192.168.40.1    YES manual up                    up\nGigabitEthernet0/1.100     192.168.100.1   YES manual up                    up`;
+          }
+          if (device === 'SW-PRINCIPAL') {
+            const f02 = (this.currentFault === 'link_lab1') ? 'administratively down down' : 'up                    up';
+            const f03 = (this.currentFault === 'link_lab2') ? 'administratively down down' : 'up                    up';
+            return `Interface                  IP-Address      OK? Method Status                Protocol\nFastEthernet0/1            unassigned      YES unset  up                    up\nFastEthernet0/2            unassigned      YES unset  ${f02}\nFastEthernet0/3            unassigned      YES unset  ${f03}\nGigabitEthernet0/1         unassigned      YES unset  up                    up\nVlan99                     192.168.99.2    YES manual up                    up`;
+          }
+          return `Interface                  IP-Address      OK? Method Status                Protocol\nFastEthernet0/1            unassigned      YES unset  up                    up\nVlan99                     192.168.99.3    YES manual up                    up`;
+        }
+
+        if (fullCmd === 'show vlan brief') {
+          if (device.startsWith('SW-')) {
+            return `VLAN Name                             Status    Ports\n---- -------------------------------- --------- -------------------------------\n1    default                          active    Fa0/4-24\n10   LAB1                             active    Fa0/1\n20   LAB2                             active    \n30   ADMINISTRATIVO                   active    Fa0/11, Fa0/12\n40   PROFESSORES                      active    Fa0/13\n99   GERENCIA                         active    CPU\n100  SERVIDORES                       active    Fa0/20, Fa0/21`;
+          }
+          return 'Invalid input detected at \'^\' marker (VLAN brief disponível em Switches).';
+        }
+
+        if (fullCmd === 'show access-lists') {
+          if (device !== 'RT-BORDA') return '% Comando válido apenas no roteador RT-BORDA.';
+          if (this.currentFault === 'acl_removed') {
+            return `Extended IP access list ACL_ALUNOS\n    10 permit ip any 192.168.100.0 0.0.0.255\n    20 permit ip any host 8.8.8.8\n    30 permit ip any any eq www\n    (Linha de bloqueio ao Administrativo AUSENTE!)`;
+          }
+          return `Extended IP access list ACL_ALUNOS\n    10 permit ip any 192.168.100.0 0.0.0.255 (match 142 packets)\n    20 deny ip any 192.168.30.0 0.0.0.255 (match 12 packets)\n    30 deny ip any 192.168.40.0 0.0.0.255\n    40 deny ip any 192.168.99.0 0.0.0.255\n    50 permit ip any any (match 890 packets)`;
+        }
+
+        if (fullCmd === 'show ip nat statistics') {
+          if (device !== 'RT-BORDA') return '% Comando válido apenas no roteador RT-BORDA.';
+          if (this.currentFault === 'nat_missing') {
+            return `Total active translations: 0 (0 static, 0 dynamic; 0 extended)\nOutside interfaces: GigabitEthernet0/0\nInside interfaces: GigabitEthernet0/1.10, GigabitEthernet0/1.20\nHits: 0  Misses: 0\nDynamic mappings: (Nenhum mapeamento NAT configurado!)`;
+          }
+          return `Total active translations: 4 (0 static, 4 dynamic; 4 extended)\nOutside interfaces: GigabitEthernet0/0\nInside interfaces: GigabitEthernet0/1.10, GigabitEthernet0/1.20, GigabitEthernet0/1.30, GigabitEthernet0/1.40\nHits: 1420  Misses: 3\nDynamic mappings:\n-- Inside Source access-list 10 pool POOL-INTERNET refcount 4`;
+        }
+
+        if (fullCmd === 'show ip dhcp pool') {
+          if (device !== 'RT-BORDA') return '% Comando válido apenas no roteador RT-BORDA.';
+          if (this.currentFault === 'dhcp_lab1') {
+            return `Pool POOL_LAB2 :\n Utilization mark: 100%\n Subnet size: 254 Total addresses: 254 Leased: 10\nPool POOL_ADMIN :\n Subnet size: 254 Total addresses: 254 Leased: 2\n(Pool POOL_LAB1 inexistente!)`;
+          }
+          return `Pool POOL_LAB1 :\n Subnet: 192.168.10.0 /24  Gateway: 192.168.10.1  DNS: 192.168.100.10  Leased: 10\nPool POOL_LAB2 :\n Subnet: 192.168.20.0 /24  Gateway: 192.168.20.1  DNS: 192.168.100.10  Leased: 10\nPool POOL_ADMIN :\n Subnet: 192.168.30.0 /24  Gateway: 192.168.30.1  DNS: 192.168.100.10  Leased: 2`;
+        }
+
+        return `Invalid Command: "${cmd}". Digite help para ajuda.`;
+      }
+    }
+
+    /* ====================================================================
+       2. REPOSITÓRIO LOCAL E SERVIÇOS (MOCK COMPATÍVEL COM FIREBASE)
+       ==================================================================== */
+    const StorageService = {
+      init() {
+        if (!localStorage.getItem('labnet_users')) {
+          localStorage.setItem('labnet_users', JSON.stringify([
+            { id: 'usr_prof', name: 'Prof. Carlos Eduardo', email: 'professor@escola.edu.br', pass: 'Redes1234!', role: 'PROFESSOR', verified: true },
+            { id: 'usr_aluno', name: 'Ana Silva', email: 'ana@estudante.edu.br', pass: 'Aluno1234!', role: 'ALUNO', verified: true, turmaCode: 'RED201' }
+          ]));
+        }
+        if (!localStorage.getItem('labnet_turmas')) {
+          localStorage.setItem('labnet_turmas', JSON.stringify([
+            { code: 'RED201', name: '2º Redes - Manhã', teacherId: 'usr_prof' }
+          ]));
+        }
+        if (!localStorage.getItem('labnet_test_results')) {
+          localStorage.setItem('labnet_test_results', JSON.stringify({}));
+        }
+        if (!localStorage.getItem('labnet_diagnostics')) {
+          localStorage.setItem('labnet_diagnostics', JSON.stringify([]));
+        }
+      },
+      getUsers() { return JSON.parse(localStorage.getItem('labnet_users') || '[]'); },
+      saveUsers(u) { localStorage.setItem('labnet_users', JSON.stringify(u)); },
+      getTurmas() { return JSON.parse(localStorage.getItem('labnet_turmas') || '[]'); },
+      saveTurmas(t) { localStorage.setItem('labnet_turmas', JSON.stringify(t)); },
+      getTestResults() { return JSON.parse(localStorage.getItem('labnet_test_results') || '{}'); },
+      saveTestResults(r) { localStorage.setItem('labnet_test_results', JSON.stringify(r)); },
+      getDiagnostics() { return JSON.parse(localStorage.getItem('labnet_diagnostics') || '[]'); },
+      saveDiagnostics(d) { localStorage.setItem('labnet_diagnostics', JSON.stringify(d)); }
+    };
+
+    // Roteiro oficial de 25 testes
+    const TEST_SUITE = [
+      { id: 'A1', block: 'Switching', title: 'VLANs criadas', where: 'SW-PRINCIPAL', action: 'show vlan brief', expected: 'VLANs 10, 20, 30, 40, 50, 60, 99 e 100 ativas.' },
+      { id: 'A2', block: 'Switching', title: 'Trunks configurados', where: 'SW-PRINCIPAL', action: 'show interfaces trunk', expected: 'Portas Fa0/1 a Fa0/3 como 802.1Q trunking ativas.' },
+      { id: 'A3', block: 'Switching', title: 'Switches de acesso', where: 'SW-LAB1', action: 'show vlan brief', expected: 'Portas de acesso mapeadas na VLAN 10.' },
+      { id: 'A4', block: 'Switching', title: 'Port-Security', where: 'SW-LAB1', action: 'show port-security', expected: 'Port-security habilitado com violação restrict.' },
+      { id: 'A5', block: 'Switching', title: 'Portas não usadas desligadas', where: 'Switches', action: 'show ip int brief', expected: 'Portas sobressalentes em administratively down.' },
+      { id: 'B1', block: 'Roteamento/DHCP', title: 'Subinterfaces do roteador', where: 'RT-BORDA', action: 'show ip int brief', expected: 'Subinterfaces Gi0/1.10 até Gi0/1.100 ativas com IPs .1.' },
+      { id: 'B2', block: 'Roteamento/DHCP', title: 'Tabela de rotas', where: 'RT-BORDA', action: 'show ip route', expected: 'Rota default apontando para ISP 203.0.113.1.' },
+      { id: 'B3', block: 'Roteamento/DHCP', title: 'DHCP nos PCs', where: 'PC-L1-01', action: 'ipconfig /all', expected: 'Recebe IP 192.168.10.x, gateway .1 e DNS 192.168.100.10.' },
+      { id: 'C1', block: 'Conectividade', title: 'Ping mesma VLAN', where: 'PC-ADMIN', action: 'ping 192.168.30.11', expected: 'Sucesso com 4 pacotes respondidos e TTL 128.' },
+      { id: 'C2', block: 'Conectividade', title: 'Tracert entre VLANs', where: 'PC-ADMIN', action: 'tracert 192.168.100.10', expected: 'Salto 1 no gateway .1 e salto 2 no destino final.' },
+      { id: 'D1', block: 'Serviços', title: 'Servidor Web', where: 'PC-PROF', action: 'ping 192.168.100.10', expected: 'Respostas de eco com TTL 127.' },
+      { id: 'D2', block: 'Serviços', title: 'DNS www.escola.local', where: 'PC-L1-01', action: 'nslookup www.escola.local', expected: 'Resolução para 192.168.100.10.' },
+      { id: 'D3', block: 'Serviços', title: 'Impressora de rede', where: 'PC-ADMIN', action: 'ping 192.168.100.20', expected: 'Comunicação OK com impressora.' },
+      { id: 'E1', block: 'Internet/NAT', title: 'Ping 8.8.8.8', where: 'PC-L1-01', action: 'ping 8.8.8.8', expected: 'Comunicação com internet bem sucedida com TTL 126.' },
+      { id: 'E2', block: 'Internet/NAT', title: 'Tabela NAT', where: 'RT-BORDA', action: 'show ip nat translations', expected: 'Entradas PAT mapeando IPs locais para Gi0/0.' },
+      { id: 'E3', block: 'Internet/NAT', title: 'Bloqueio de entrada WAN', where: 'ISP', action: 'ping 192.168.10.11', expected: 'Inacessível vindo de fora.' },
+      { id: 'F1', block: 'Segurança', title: 'Alunos x Administrativo', where: 'PC-L1-01', action: 'ping 192.168.30.11', expected: 'Destination host unreachable pelo gateway.' },
+      { id: 'F2', block: 'Segurança', title: 'Lab x Lab', where: 'PC-L1-01', action: 'ping 192.168.20.11', expected: 'Bloqueado por ACL entre VLANs de alunos.' },
+      { id: 'F3', block: 'Segurança', title: 'Professores x Administrativo', where: 'PC-PROF', action: 'ping 192.168.30.11', expected: 'Destination host unreachable.' },
+      { id: 'F4', block: 'Segurança', title: 'Acesso à Gerência', where: 'PC-L1-01', action: 'ping 192.168.99.2', expected: 'Bloqueado. Apenas PC-ADMIN alcança VLAN 99.' },
+      { id: 'F5', block: 'Segurança', title: 'Listas de Acesso', where: 'RT-BORDA', action: 'show access-lists', expected: 'Listas ACL_ALUNOS com contadores incrementando.' },
+      { id: 'G1', block: 'Wi-Fi', title: 'Associação ao AP', where: 'LAPTOP-PROF', action: 'ipconfig', expected: 'IP na VLAN 60 (192.168.60.x).' },
+      { id: 'G3', block: 'Wi-Fi', title: 'Acessos pelo Wi-Fi', where: 'LAPTOP-PROF', action: 'ping 192.168.100.10', expected: 'Acesso liberado a serviços escolares.' },
+      { id: 'H1', block: 'SSH', title: 'SSH autorizado PC-ADMIN', where: 'PC-ADMIN', action: 'ssh admin@192.168.99.2', expected: 'Prompt de autenticação aceito.' },
+      { id: 'H2', block: 'SSH', title: 'SSH bloqueado de laboratório', where: 'PC-L1-01', action: 'ssh admin@192.168.99.2', expected: 'Conexão rejeitada imediatamente.' }
+    ];
+
+    /* ====================================================================
+       3. CONTROLE DE ESTADO DA APLICAÇÃO (SPA STATE)
+       ==================================================================== */
+    const State = {
+      currentUser: null,
+      currentView: 'home',
+      activeCliDevice: 'PC-L1-01',
+      cliHistory: [],
+      cliHistoryIdx: -1,
+      simEngine: new NetworkEngine()
+    };
+
+    function initAuth() {
+      const saved = localStorage.getItem('labnet_current_user');
+      if (saved) {
+        State.currentUser = JSON.parse(saved);
+      }
+      updateNavbar();
+    }
+
+    function setCurrentUser(user) {
+      State.currentUser = user;
+      if (user) {
+        localStorage.setItem('labnet_current_user', JSON.stringify(user));
+      } else {
+        localStorage.removeItem('labnet_current_user');
+      }
+      updateNavbar();
+    }
+
+    function updateNavbar() {
+      const links = document.getElementById('nav-user-links');
+      if (!State.currentUser) {
+        links.innerHTML = `
+          <button onclick="navigate('home')" class="text-sm font-medium hover:text-sky-200">Início</button>
+          <button onclick="navigate('login')" class="text-sm font-semibold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition">Entrar</button>
+          <button onclick="navigate('register')" class="text-sm font-semibold bg-white text-brand-600 hover:bg-sky-50 px-3 py-1.5 rounded-lg transition shadow">Cadastre-se</button>
+        `;
+      } else {
+        links.innerHTML = `
+          <span class="text-xs bg-sky-700/80 px-2.5 py-1 rounded-full uppercase tracking-wider font-semibold">${State.currentUser.role}</span>
+          <span class="text-sm font-medium hidden sm:inline">${State.currentUser.name}</span>
+          ${State.currentUser.role === 'ALUNO' ? `
+            <button onclick="navigate('lab')" class="text-sm hover:text-sky-200 font-medium">Laboratório</button>
+            <button onclick="navigate('sim')" class="text-sm hover:text-sky-200 font-medium">Terminal Simulado</button>
+          ` : `
+            <button onclick="navigate('prof_dashboard')" class="text-sm hover:text-sky-200 font-medium">Painel Docente</button>
+          `}
+          <button onclick="navigate('profile')" class="text-sm hover:text-sky-200">Perfil</button>
+          <button onclick="logout()" class="text-sm bg-red-600/80 hover:bg-red-700 px-2.5 py-1 rounded text-white font-medium ml-2">Sair</button>
+        `;
+      }
+    }
+
+    function navigate(view) {
+      State.currentView = view;
+      renderView();
+      window.scrollTo(0, 0);
+    }
+
+    function logout() {
+      setCurrentUser(null);
+      navigate('home');
+    }
+
+    /* ====================================================================
+       4. RENDERIZAÇÃO DAS TELAS DA APLICAÇÃO
+       ==================================================================== */
+    function renderView() {
+      const root = document.getElementById('app-root');
+      switch (State.currentView) {
+        case 'home':
+          root.innerHTML = viewHome();
+          break;
+        case 'login':
+          root.innerHTML = viewLogin();
+          break;
+        case 'register':
+          root.innerHTML = viewRegister();
+          break;
+        case 'profile':
+          root.innerHTML = viewProfile();
+          break;
+        case 'lab':
+          if (!State.currentUser) return navigate('login');
+          root.innerHTML = viewLab();
+          break;
+        case 'sim':
+          if (!State.currentUser) return navigate('login');
+          root.innerHTML = viewSimulator();
+          initTerminalEvents();
+          break;
+        case 'prof_dashboard':
+          if (!State.currentUser || State.currentUser.role !== 'PROFESSOR') return navigate('home');
+          root.innerHTML = viewProfessor();
+          break;
+        default:
+          root.innerHTML = viewHome();
+      }
+    }
+
+    // --- TELA 1: HOME ---
+    function viewHome() {
+      return `
+        <div class="py-12 space-y-12">
+          <div class="text-center max-w-3xl mx-auto space-y-4">
+            <span class="inline-block px-3 py-1 bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-sky-400 font-semibold text-xs rounded-full uppercase tracking-wider">Ensino Profissional Integrado</span>
+            <h1 class="text-4xl sm:text-5xl font-black text-gray-900 dark:text-white leading-tight">Laboratórios de Redes e Práticas Reais no Navegador</h1>
+            <p class="text-lg text-gray-600 dark:text-gray-300">Aprenda comutação, roteamento, DHCP, NAT e segurança por ACLs com investigações guiadas e terminal interativo.</p>
+            <div class="pt-4 flex flex-wrap justify-center gap-4">
+              <button onclick="navigate('register')" class="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg transition">Começar Agora</button>
+              <button onclick="navigate('login')" class="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 font-bold rounded-xl shadow transition">Acessar Minha Conta</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
+            <div class="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-2">
+              <div class="w-12 h-12 bg-sky-100 dark:bg-sky-900/50 text-brand-600 font-bold text-xl rounded-xl flex items-center justify-center">01</div>
+              <h3 class="font-bold text-lg text-gray-900 dark:text-white">Topologia Real de Escola</h3>
+              <p class="text-sm text-gray-500 dark:text-gray-400">8 VLANs isoladas, servidores centrais, firewalls com ACL restritiva e enlace WAN simulado.</p>
+            </div>
+            <div class="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-2">
+              <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 font-bold text-xl rounded-xl flex items-center justify-center">02</div>
+              <h3 class="font-bold text-lg text-gray-900 dark:text-white">Simulador de Diagnóstico</h3>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Investigue chamados de suporte técnico reais com sorteio de 8 falhas em L2, L3, DHCP, DNS ou ACLs.</p>
+            </div>
+            <div class="p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-2">
+              <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 text-purple-600 font-bold text-xl rounded-xl flex items-center justify-center">03</div>
+              <h3 class="font-bold text-lg text-gray-900 dark:text-white">Acompanhamento Docente</h3>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Painel com o progresso de cada estudante nos 25 testes e exportação de CSV seguro contra injeção.</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // --- TELA 2: LOGIN ---
+    function viewLogin() {
+      return `
+        <div class="max-w-md mx-auto my-8 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700">
+          <h2 class="text-2xl font-bold mb-6 text-gray-900 dark:text-white text-center">Entrar no LabNet</h2>
+          <div id="login-error" class="hidden mb-4 p-3 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 text-sm rounded-lg"></div>
+          <form onsubmit="handleLogin(event)" class="space-y-4">
+            <div>
+              <label class="block text-sm font-semibold mb-1">E-mail institucional</label>
+              <input type="email" id="login-email" required class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-brand-500" placeholder="exemplo@estudante.edu.br">
+            </div>
+            <div>
+              <label class="block text-sm font-semibold mb-1">Senha</label>
+              <input type="password" id="login-pass" required class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-brand-500" placeholder="••••••••">
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <button type="button" onclick="alert('Um link seguro de redefinição de senha foi simulado e enviado para seu e-mail institucional.')" class="text-brand-600 hover:underline">Esqueci minha senha</button>
+              <button type="button" onclick="alert('E-mail de confirmação reenviado. Verifique sua caixa de entrada e spam.')" class="text-gray-500 hover:underline">Reenviar confirmação</button>
+            </div>
+            <button type="submit" class="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg transition shadow">Acessar Ambiente</button>
+          </form>
+          <p class="text-center text-xs text-gray-500 mt-6">Não tem cadastro? <button onclick="navigate('register')" class="text-brand-600 font-bold hover:underline">Cadastre-se aqui</button></p>
+        </div>
+      `;
+    }
+
+    // --- TELA 2.1: CADASTRO COM PRIVACIDADE LGPD ---
+    function viewRegister() {
+      return `
+        <div class="max-w-md mx-auto my-6 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700">
+          <h2 class="text-2xl font-bold mb-2 text-gray-900 dark:text-white text-center">Criar Nova Conta</h2>
+          <p class="text-xs text-center text-gray-500 mb-6">Acesso individual de alunos e docentes</p>
+          <div id="reg-msg" class="hidden mb-4 p-3 text-sm rounded-lg"></div>
+          <form onsubmit="handleRegister(event)" class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold mb-1">Nome Completo</label>
+              <input type="text" id="reg-name" required maxlength="100" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-brand-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold mb-1">E-mail Acadêmico</label>
+              <input type="email" id="reg-email" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-brand-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold mb-1">Senha (Mínimo 8 caracteres)</label>
+              <input type="password" id="reg-pass" minlength="8" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-brand-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold mb-1">Perfil</label>
+              <select id="reg-role" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm" onchange="toggleTurmaInput(this.value)">
+                <option value="ALUNO">Aluno</option>
+                <option value="PROFESSOR">Professor</option>
+              </select>
+            </div>
+            <div id="div-reg-turma">
+              <label class="block text-xs font-semibold mb-1">Código da Turma (6 caracteres, opcional)</label>
+              <input type="text" id="reg-turma" maxlength="6" class="w-full px-3 py-2 uppercase rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm tracking-wider" placeholder="Ex: RED201">
+            </div>
+            <div class="flex items-start space-x-2 pt-2">
+              <input type="checkbox" id="reg-lgpd" required class="mt-1 rounded text-brand-600">
+              <label for="reg-lgpd" class="text-xs text-gray-500">Li e aceito os <button type="button" onclick="document.getElementById('modal-lgpd').classList.remove('hidden')" class="text-brand-600 underline">Termos e Aviso de Privacidade (LGPD)</button>.</label>
+            </div>
+            <button type="submit" class="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg transition shadow mt-4">Concluir Cadastro</button>
+          </form>
+          <p class="text-center text-xs text-gray-500 mt-4">Já possui conta? <button onclick="navigate('login')" class="text-brand-600 font-bold hover:underline">Fazer login</button></p>
+        </div>
+      `;
+    }
+
+    function toggleTurmaInput(role) {
+      document.getElementById('div-reg-turma').style.display = (role === 'ALUNO') ? 'block' : 'none';
+    }
+
+    // --- TELA 3 & 4: LABORATÓRIO E ROTEIRO DE TESTES (25 ITENS) ---
+    function viewLab() {
+      const results = StorageService.getTestResults()[State.currentUser.id] || {};
+      const completedCount = Object.keys(results).filter(k => results[k].status === 'OK').length;
+      const failCount = Object.keys(results).filter(k => results[k].status === 'FALHA').length;
+
+      return `
+        <div class="space-y-8">
+          <!-- Cabeçalho do Laboratório -->
+          <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <span class="text-xs font-bold text-brand-600 uppercase">Laboratório de Integração</span>
+              <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Rede da Escola Profissionalizante</h2>
+              <p class="text-sm text-gray-500 mt-1">Implementação com VLANs, Roteamento Inter-VLAN, DHCP Pool, NAT/PAT e ACLs no RT-BORDA.</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="text-center px-4 py-2 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 rounded-xl">
+                <span class="block text-2xl font-black text-emerald-600">${completedCount}</span>
+                <span class="text-xs text-emerald-700 font-bold uppercase">Testes OK</span>
+              </div>
+              <div class="text-center px-4 py-2 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 rounded-xl">
+                <span class="block text-2xl font-black text-rose-600">${failCount}</span>
+                <span class="text-xs text-rose-700 font-bold uppercase">Falhas</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Topologia e Arquivos -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
+              <h3 class="font-bold text-lg text-gray-900 dark:text-white flex items-center justify-between">
+                <span>Topologia Lógica e Tabela de Endereçamento</span>
+                <span class="text-xs bg-gray-100 dark:bg-gray-700 px-2.5 py-1 rounded">Mascara /24 (255.255.255.0)</span>
+              </h3>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr class="bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 border-b">
+                      <th class="p-2">VLAN</th>
+                      <th class="p-2">Nome</th>
+                      <th class="p-2">Sub-rede</th>
+                      <th class="p-2">Gateway</th>
+                      <th class="p-2">Equipamentos</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    <tr><td class="p-2 font-bold">10</td><td class="p-2">LAB1</td><td class="p-2">192.168.10.0</td><td class="p-2">.1</td><td class="p-2">10 PCs (PC-L1-01 a 10)</td></tr>
+                    <tr><td class="p-2 font-bold">20</td><td class="p-2">LAB2</td><td class="p-2">192.168.20.0</td><td class="p-2">.1</td><td class="p-2">10 PCs (PC-L2-01 a 10)</td></tr>
+                    <tr><td class="p-2 font-bold">30</td><td class="p-2">ADMINISTRATIVO</td><td class="p-2">192.168.30.0</td><td class="p-2">.1</td><td class="p-2">PC-SECRETARIA (.11), PC-ADMIN (.12)</td></tr>
+                    <tr><td class="p-2 font-bold">40</td><td class="p-2">PROFESSORES</td><td class="p-2">192.168.40.0</td><td class="p-2">.1</td><td class="p-2">PC-PROF (.11)</td></tr>
+                    <tr><td class="p-2 font-bold">50</td><td class="p-2">BIBLIOTECA</td><td class="p-2">192.168.50.0</td><td class="p-2">.1</td><td class="p-2">PC-BIBLIOTECA (.11)</td></tr>
+                    <tr><td class="p-2 font-bold">60</td><td class="p-2">WIFI</td><td class="p-2">192.168.60.0</td><td class="p-2">.1</td><td class="p-2">LAPTOP-PROF (.11) via AP</td></tr>
+                    <tr><td class="p-2 font-bold">99</td><td class="p-2">GERENCIA</td><td class="p-2">192.168.99.0</td><td class="p-2">.1</td><td class="p-2">SW-PRINCIPAL (.2), SW-LAB1 (.3), SW-LAB2 (.4)</td></tr>
+                    <tr><td class="p-2 font-bold">100</td><td class="p-2">SERVIDORES</td><td class="p-2">192.168.100.0</td><td class="p-2">.1</td><td class="p-2">Server-Escola (.10), Impressora (.20)</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Downloads de Configurações -->
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
+              <h3 class="font-bold text-lg text-gray-900 dark:text-white">Arquivos do Laboratório</h3>
+              <p class="text-xs text-gray-500">Faça download dos roteiros e arquivos base de configuração para o Cisco Packet Tracer:</p>
+              <div class="space-y-2">
+                <button onclick="downloadCfg('rt-borda')" class="w-full text-left p-3 text-xs bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg flex justify-between items-center transition">
+                  <span class="font-semibold">📄 cfg-RT-BORDA.txt</span>
+                  <span class="text-brand-600 font-bold">Baixar</span>
+                </button>
+                <button onclick="downloadCfg('sw-principal')" class="w-full text-left p-3 text-xs bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg flex justify-between items-center transition">
+                  <span class="font-semibold">📄 cfg-SW-PRINCIPAL.txt</span>
+                  <span class="text-brand-600 font-bold">Baixar</span>
+                </button>
+                <button onclick="downloadCfg('sw-lab1')" class="w-full text-left p-3 text-xs bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg flex justify-between items-center transition">
+                  <span class="font-semibold">📄 cfg-SW-LAB1.txt</span>
+                  <span class="text-brand-600 font-bold">Baixar</span>
+                </button>
+                <button onclick="downloadCfg('guia-montagem')" class="w-full text-left p-3 text-xs bg-sky-50 dark:bg-sky-900/40 hover:bg-sky-100 rounded-lg flex justify-between items-center transition border border-sky-200">
+                  <span class="font-semibold text-brand-700 dark:text-sky-300">📘 Guia_Montagem_PacketTracer.pdf</span>
+                  <span class="text-brand-600 font-bold">Baixar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Roteiro de Testes (25 itens) -->
+          <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-bold text-xl text-gray-900 dark:text-white">Roteiro de Validação de Redes (25 Testes)</h3>
+                <p class="text-xs text-gray-500">Execute os testes abaixo no simulador ou no Packet Tracer e registre os resultados.</p>
+              </div>
+            </div>
+            <div class="space-y-4">
+              ${TEST_SUITE.map(t => {
+                const cur = results[t.id] || { status: 'PENDENTE', obs: '' };
+                return `
+                  <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-xl space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div class="space-y-1">
+                        <span class="text-xs font-bold px-2 py-0.5 rounded ${cur.status === 'OK' ? 'bg-emerald-100 text-emerald-800' : cur.status === 'FALHA' ? 'bg-rose-100 text-rose-800' : 'bg-gray-200 text-gray-700'}">${t.id} - ${t.block}</span>
+                        <h4 class="font-bold text-sm text-gray-900 dark:text-white">${t.title}</h4>
+                        <p class="text-xs text-gray-500"><strong>Local:</strong> ${t.where} | <strong>Ação:</strong> <code class="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-sky-600">${t.action}</code></p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400"><strong>Resultado Esperado:</strong> ${t.expected}</p>
+                      </div>
+                      <div class="flex items-center space-x-2 shrink-0">
+                        <button onclick="setTestStatus('${t.id}', 'OK')" class="px-3 py-1.5 text-xs font-bold rounded-lg border ${cur.status === 'OK' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white dark:bg-gray-700 border-gray-300 text-gray-700 dark:text-gray-200 hover:bg-emerald-50'}">OK</button>
+                        <button onclick="setTestStatus('${t.id}', 'FALHA')" class="px-3 py-1.5 text-xs font-bold rounded-lg border ${cur.status === 'FALHA' ? 'bg-rose-600 text-white border-rose-600' : 'bg-white dark:bg-gray-700 border-gray-300 text-gray-700 dark:text-gray-200 hover:bg-rose-50'}">FALHA</button>
+                      </div>
+                    </div>
+                    <div>
+                      <input type="text" maxlength="500" value="${escapeHtml(cur.obs || '')}" onchange="setTestObs('${t.id}', this.value)" placeholder="Observação do teste (máximo 500 caracteres)..." class="w-full text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-900 focus:ring-1 focus:ring-brand-500">
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // --- TELA 5: SIMULADOR DE DIAGNÓSTICO (TERMINAL COM 8 FALHAS) ---
+    function viewSimulator() {
+      const activeFault = State.simEngine.currentFault;
+      const faultInfo = (activeFault !== 'normal') ? State.simEngine.faultsDef[activeFault] : null;
+
+      return `
+        <div class="space-y-6">
+          <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <span class="text-xs font-bold text-emerald-600 uppercase">Simulador Interativo</span>
+              <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Terminal de Investigação e Diagnóstico</h2>
+              <p class="text-xs text-gray-500">Comandos Windows/Cisco para resolução em camadas (L1 a L7).</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="sortearChamado()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow transition">🎲 Sortear Chamado de Suporte</button>
+              <button onclick="restaurarRede()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 text-gray-800 dark:text-gray-200 font-bold rounded-xl text-xs transition">Restaurar Rede Normal</button>
+            </div>
+          </div>
+
+          <!-- Card do Chamado Ativo -->
+          <div class="p-4 rounded-xl border ${activeFault !== 'normal' ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700' : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700'} flex items-start gap-3">
+            <span class="text-xl">${activeFault !== 'normal' ? '⚠️' : '✅'}</span>
+            <div class="space-y-1">
+              <h4 class="text-sm font-bold text-gray-900 dark:text-white">
+                ${activeFault !== 'normal' ? 'Chamado de Suporte Técnico Ativo (Investigação Pendente)' : 'Status do Laboratório: Rede Operando em Estado Normal'}
+              </h4>
+              <p class="text-xs text-gray-600 dark:text-gray-300">
+                ${activeFault !== 'normal' ? `<strong>Sintoma Relatado:</strong> "${faultInfo.symptom}" - Use os comandos para descobrir a causa raiz.` : 'Nenhuma falha ativa. Todas as VLANs, DHCP, NAT e ACLs estão operacionais.'}
+              </p>
+            </div>
+          </div>
+
+          <!-- Janela do Terminal CLI -->
+          <div class="bg-gray-950 rounded-2xl shadow-2xl border border-gray-800 overflow-hidden">
+            <div class="bg-gray-900 px-4 py-3 flex items-center justify-between border-b border-gray-800">
+              <div class="flex items-center space-x-2">
+                <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                <span class="text-xs font-mono text-gray-400 pl-2">Console: <strong id="lbl-active-dev" class="text-white">${State.activeCliDevice}</strong></span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <label class="text-xs text-gray-400">Trocar Dispositivo:</label>
+                <select id="select-dev" onchange="changeCliDevice(this.value)" class="bg-gray-800 text-xs text-gray-200 px-2 py-1 rounded border border-gray-700">
+                  <option value="PC-L1-01">PC-L1-01 (VLAN 10 - Lab 1)</option>
+                  <option value="PC-L2-01">PC-L2-01 (VLAN 20 - Lab 2)</option>
+                  <option value="PC-SECRETARIA">PC-SECRETARIA (VLAN 30)</option>
+                  <option value="PC-ADMIN">PC-ADMIN (VLAN 30)</option>
+                  <option value="PC-PROF">PC-PROF (VLAN 40)</option>
+                  <option value="LAPTOP-PROF">LAPTOP-PROF (VLAN 60 Wi-Fi)</option>
+                  <option value="RT-BORDA">RT-BORDA (Roteador Central)</option>
+                  <option value="SW-PRINCIPAL">SW-PRINCIPAL (Core L2)</option>
+                  <option value="SW-LAB1">SW-LAB1 (Acesso Lab 1)</option>
+                  <option value="SW-LAB2">SW-LAB2 (Acesso Lab 2)</option>
+                </select>
+              </div>
+            </div>
+            <div id="terminal-screen" class="cli-terminal p-4 h-80 overflow-y-auto text-xs space-y-2 custom-scrollbar">
+              <p>LabNet Terminal Emulator v2.6 - Ambiente Didático Integrado.</p>
+              <p>Digite <span class="text-white font-bold">help</span> para a lista de comandos suportados.</p>
+            </div>
+            <div class="bg-black/90 p-2 flex items-center border-t border-gray-800 font-mono text-xs">
+              <span id="prompt-label" class="text-emerald-400 mr-2 font-bold">${getPromptString(State.activeCliDevice)}</span>
+              <input type="text" id="terminal-input" class="cli-input focus:ring-0" autocomplete="off" spellcheck="false" placeholder="Digite um comando e pressione Enter...">
+            </div>
+          </div>
+
+          <!-- Formulário de Diagnóstico Final -->
+          ${activeFault !== 'normal' ? `
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
+              <h3 class="font-bold text-lg text-gray-900 dark:text-white">Conclusão do Chamado Técnico</h3>
+              <p class="text-xs text-gray-500">Qual foi a causa real identificada na sua investigação?</p>
+              <div class="flex flex-col sm:flex-row gap-3">
+                <select id="select-causa" class="flex-grow px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs">
+                  <option value="">-- Selecione a causa identificada --</option>
+                  <option value="link_lab1">SW-PRINCIPAL Fa0/2 em shutdown (Enlace Lab 1 down)</option>
+                  <option value="link_lab2">SW-PRINCIPAL Fa0/3 em shutdown (Enlace Lab 2 down)</option>
+                  <option value="trunk_router">RT-BORDA Gi0/1 em shutdown (Enlace Tronco do Roteador down)</option>
+                  <option value="isp_down">RT-BORDA Gi0/0 em shutdown (Link com ISP/Internet down)</option>
+                  <option value="dhcp_lab1">Pool DHCP LAB1 ausente ou corrompido no RT-BORDA</option>
+                  <option value="acl_removed">Regra de bloqueio removida da ACL_ALUNOS (Falha de Isolamento)</option>
+                  <option value="nat_missing">NAT Overload (PAT) ausente no roteador de borda</option>
+                  <option value="dns_down">Serviço DNS inativo no servidor Server-Escola</option>
+                </select>
+                <button onclick="enviarDiagnostico()" class="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg text-xs transition">Submeter Diagnóstico</button>
+                <button onclick="desistirDiagnostico()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-semibold">Desistir e Ver Solução</button>
+              </div>
+              <div id="diag-feedback" class="hidden p-3 rounded-lg text-xs"></div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    function getPromptString(dev) {
+      if (dev.startsWith('PC-') || dev.startsWith('LAPTOP-') || dev.startsWith('Server-') || dev.startsWith('Impressora-')) {
+        return `C:\\Users\\${dev}>`;
+      }
+      return `${dev}#`;
+    }
+
+    function changeCliDevice(newDev) {
+      State.activeCliDevice = newDev;
+      document.getElementById('lbl-active-dev').innerText = newDev;
+      document.getElementById('prompt-label').innerText = getPromptString(newDev);
+      printTerminal(`\n[Mudando console ativo para ${newDev}]\n`);
+    }
+
+    function printTerminal(text) {
+      const screen = document.getElementById('terminal-screen');
+      if (!screen) return;
+      const el = document.createElement('pre');
+      el.className = 'whitespace-pre-wrap leading-relaxed';
+      el.innerText = text;
+      screen.appendChild(el);
+      screen.scrollTop = screen.scrollHeight;
+    }
+
+    function initTerminalEvents() {
+      const input = document.getElementById('terminal-input');
+      if (!input) return;
+      input.focus();
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const val = input.value;
+          input.value = '';
+          if (!val.trim()) return;
+
+          State.cliHistory.push(val);
+          State.cliHistoryIdx = State.cliHistory.length;
+
+          printTerminal(`${getPromptString(State.activeCliDevice)} ${val}`);
+
+          if (val.trim().toLowerCase() === 'clear') {
+            document.getElementById('terminal-screen').innerHTML = '';
+            return;
+          }
+
+          const out = State.simEngine.executeCommand(State.activeCliDevice, val);
+          printTerminal(out + '\n');
+        } else if (e.key === 'ArrowUp') {
+          if (State.cliHistoryIdx > 0) {
+            State.cliHistoryIdx--;
+            input.value = State.cliHistory[State.cliHistoryIdx];
+          }
+        } else if (e.key === 'ArrowDown') {
+          if (State.cliHistoryIdx < State.cliHistory.length - 1) {
+            State.cliHistoryIdx++;
+            input.value = State.cliHistory[State.cliHistoryIdx];
+          } else {
+            State.cliHistoryIdx = State.cliHistory.length;
+            input.value = '';
+          }
+        }
+      });
+    }
+
+    // --- TELA 6: PAINEL DO PROFESSOR (COM EXPORTAÇÃO CSV SEGURA) ---
+    function viewProfessor() {
+      const turmas = StorageService.getTurmas().filter(t => t.teacherId === State.currentUser.id);
+      const allUsers = StorageService.getUsers().filter(u => u.role === 'ALUNO');
+      const allResults = StorageService.getTestResults();
+      const allDiags = StorageService.getDiagnostics();
+
+      return `
+        <div class="space-y-8">
+          <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <span class="text-xs font-bold text-brand-600 uppercase">Gestão Acadêmica</span>
+              <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Painel Docente de Redes</h2>
+              <p class="text-xs text-gray-500">Crie turmas, acompanhe os 25 testes por aluno e exporte relatórios consolidados.</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <button onclick="exportProfessorCSV()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow flex items-center gap-2 transition">
+                <span>📊</span> Exportar CSV Seguro
+              </button>
+            </div>
+          </div>
+
+          <!-- Criação de Turma -->
+          <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
+            <h3 class="font-bold text-lg text-gray-900 dark:text-white">Criar Nova Turma</h3>
+            <form onsubmit="handleCreateTurma(event)" class="flex flex-col sm:flex-row gap-3">
+              <input type="text" id="turma-name" required placeholder="Nome da Turma (Ex: 3º Redes Vespertino)" class="flex-grow px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs focus:ring-2 focus:ring-brand-500">
+              <button type="submit" class="px-6 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg text-xs shadow transition">Gerar Código de Turma</button>
+            </form>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+              ${turmas.map(t => {
+                const count = allUsers.filter(u => u.turmaCode === t.code).length;
+                return `
+                  <div class="p-4 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-xl space-y-1">
+                    <span class="text-xs text-gray-500">Código de Acesso:</span>
+                    <div class="flex items-center justify-between">
+                      <span class="font-mono text-lg font-black text-brand-600">${t.code}</span>
+                      <span class="text-xs bg-white dark:bg-gray-800 px-2 py-0.5 rounded font-bold">${count} alunos</span>
+                    </div>
+                    <p class="text-xs font-semibold text-gray-800 dark:text-gray-200">${escapeHtml(t.name)}</p>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+
+          <!-- Tabela de Alunos e Progresso -->
+          <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
+            <h3 class="font-bold text-lg text-gray-900 dark:text-white">Progresso dos Estudantes</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 border-b">
+                    <th class="p-3">Aluno</th>
+                    <th class="p-3">E-mail</th>
+                    <th class="p-3">Turma</th>
+                    <th class="p-3 text-center">Testes OK</th>
+                    <th class="p-3 text-center">Falhas Marcadas</th>
+                    <th class="p-3 text-center">Diagnósticos Resolvidos</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                  ${allUsers.length === 0 ? `<tr><td colspan="6" class="p-4 text-center text-gray-400">Nenhum aluno matriculado ainda.</td></tr>` : ''}
+                  ${allUsers.map(u => {
+                    const uRes = allResults[u.id] || {};
+                    const okCount = Object.keys(uRes).filter(k => uRes[k].status === 'OK').length;
+                    const fCount = Object.keys(uRes).filter(k => uRes[k].status === 'FALHA').length;
+                    const diagCount = allDiags.filter(d => d.userId === u.id && d.success).length;
+                    return `
+                      <tr class="hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
+                        <td class="p-3 font-bold text-gray-900 dark:text-white">${escapeHtml(u.name)}</td>
+                        <td class="p-3 text-gray-500">${escapeHtml(u.email)}</td>
+                        <td class="p-3 font-mono font-semibold">${u.turmaCode || '<span class="text-gray-400">Sem turma</span>'}</td>
+                        <td class="p-3 text-center"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">${okCount}/25</span></td>
+                        <td class="p-3 text-center"><span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold">${fCount}</span></td>
+                        <td class="p-3 text-center"><span class="px-2 py-0.5 rounded bg-sky-100 text-sky-800 font-bold">${diagCount} chamados</span></td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // --- TELA 7: PERFIL ---
+    function viewProfile() {
+      return `
+        <div class="max-w-xl mx-auto my-6 bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-6">
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Perfil do Usuário</h2>
+          <div class="space-y-3 text-sm">
+            <div>
+              <span class="block text-xs text-gray-500">Nome:</span>
+              <span class="font-bold text-gray-900 dark:text-white">${escapeHtml(State.currentUser.name)}</span>
+            </div>
+            <div>
+              <span class="block text-xs text-gray-500">E-mail:</span>
+              <span class="font-semibold text-gray-700 dark:text-gray-300">${escapeHtml(State.currentUser.email)}</span>
+            </div>
+            <div>
+              <span class="block text-xs text-gray-500">Perfil de Acesso:</span>
+              <span class="font-bold text-brand-600">${State.currentUser.role}</span>
+            </div>
+            ${State.currentUser.role === 'ALUNO' ? `
+              <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
+                <label class="block text-xs font-semibold mb-1">Vincular a uma Turma (Código de 6 dígitos)</label>
+                <div class="flex gap-2">
+                  <input type="text" id="prof-turma-code" maxlength="6" value="${State.currentUser.turmaCode || ''}" class="uppercase font-mono tracking-wider px-3 py-1.5 border rounded-lg text-xs dark:bg-gray-700">
+                  <button onclick="vincularTurma()" class="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg text-xs">Salvar Turma</button>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    /* ====================================================================
+       5. AÇÕES, DIAGNÓSTICOS E EXPORTAÇÃO CSV SEGURA
+       ==================================================================== */
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    // Proteção contra Formula Injection (CSV Injection)
+    function sanitizeForCSV(val) {
+      if (val === null || val === undefined) return '""';
+      let clean = String(val).replace(/"/g, '""');
+      if (/^[=\+\-\@\t\r]/.test(clean)) {
+        clean = "'" + clean;
+      }
+      return `"${clean}"`;
+    }
+
+    function exportProfessorCSV() {
+      const users = StorageService.getUsers().filter(u => u.role === 'ALUNO');
+      const results = StorageService.getTestResults();
+      const diags = StorageService.getDiagnostics();
+
+      let csv = 'Nome,Email,Turma,Testes_OK,Falhas_Registradas,Diagnosticos_Resolvidos\n';
+      users.forEach(u => {
+        const uRes = results[u.id] || {};
+        const ok = Object.keys(uRes).filter(k => uRes[k].status === 'OK').length;
+        const fails = Object.keys(uRes).filter(k => uRes[k].status === 'FALHA').length;
+        const resolvs = diags.filter(d => d.userId === u.id && d.success).length;
+
+        csv += [
+          sanitizeForCSV(u.name),
+          sanitizeForCSV(u.email),
+          sanitizeForCSV(u.turmaCode || 'N/A'),
+          sanitizeForCSV(ok),
+          sanitizeForCSV(fails),
+          sanitizeForCSV(resolvs)
+        ].join(',') + '\n';
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `LabNet_Relatorio_Turmas_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    }
+
+    function sortearChamado() {
+      const faultKeys = Object.keys(State.simEngine.faultsDef);
+      const chosen = faultKeys[Math.floor(Math.random() * faultKeys.length)];
+      State.simEngine.setFault(chosen);
+      renderView();
+      printTerminal(`\n*** NOVO CHAMADO REGISTRADO ***\nSintoma: ${State.simEngine.faultsDef[chosen].symptom}\nInicie a investigação utilizando os comandos nos computadores ou roteador/switches.\n`);
+    }
+
+    function restaurarRede() {
+      State.simEngine.setFault('normal');
+      renderView();
+      printTerminal('\n[Ambiente restaurado para operação 100% normal]\n');
+    }
+
+    function enviarDiagnostico() {
+      const selected = document.getElementById('select-causa').value;
+      const feedback = document.getElementById('diag-feedback');
+      if (!selected) return alert('Selecione uma causa!');
+
+      const correct = State.simEngine.currentFault;
+      const isSuccess = (selected === correct);
+
+      // Salva tentativa
+      const diags = StorageService.getDiagnostics();
+      diags.push({
+        userId: State.currentUser.id,
+        fault: correct,
+        guess: selected,
+        success: isSuccess,
+        timestamp: new Date().toISOString()
+      });
+      StorageService.saveDiagnostics(diags);
+
+      feedback.classList.remove('hidden', 'bg-rose-100', 'text-rose-800', 'bg-emerald-100', 'text-emerald-800');
+
+      if (isSuccess) {
+        const info = State.simEngine.faultsDef[correct];
+        feedback.classList.add('bg-emerald-100', 'text-emerald-800');
+        feedback.innerHTML = `<strong>Parabéns! Diagnóstico Correto.</strong><br>Causa Real: ${info.realCause}<br><pre class="mt-2 text-xs bg-emerald-50 p-2 rounded">${info.fix}</pre><br>A rede agora voltou ao estado normal.`;
+        State.simEngine.setFault('normal');
+        setTimeout(() => renderView(), 4000);
+      } else {
+        feedback.classList.add('bg-rose-100', 'text-rose-800');
+        feedback.innerHTML = `<strong>Ainda não é essa a causa.</strong> Continue investigando nos switches e roteador. Sua tentativa foi registrada para o professor.`;
+      }
+    }
+
+    function desistirDiagnostico() {
+      const correct = State.simEngine.currentFault;
+      const info = State.simEngine.faultsDef[correct];
+      const feedback = document.getElementById('diag-feedback');
+      feedback.classList.remove('hidden', 'bg-rose-100', 'text-rose-800');
+      feedback.classList.add('bg-amber-100', 'text-amber-800');
+      feedback.innerHTML = `<strong>Causa Revelada:</strong> ${info.realCause}<br><strong>Como corrigir:</strong><pre class="mt-2 text-xs bg-amber-50 p-2 rounded">${info.fix}</pre>`;
+      State.simEngine.setFault('normal');
+      setTimeout(() => renderView(), 6000);
+    }
+
+    function setTestStatus(testId, status) {
+      const all = StorageService.getTestResults();
+      if (!all[State.currentUser.id]) all[State.currentUser.id] = {};
+      if (!all[State.currentUser.id][testId]) all[State.currentUser.id][testId] = { status: '', obs: '' };
+
+      all[State.currentUser.id][testId].status = status;
+      StorageService.saveTestResults(all);
+      renderView();
+    }
+
+    function setTestObs(testId, obs) {
+      const all = StorageService.getTestResults();
+      if (!all[State.currentUser.id]) all[State.currentUser.id] = {};
+      if (!all[State.currentUser.id][testId]) all[State.currentUser.id][testId] = { status: 'PENDENTE', obs: '' };
+
+      all[State.currentUser.id][testId].obs = obs.substring(0, 500);
+      StorageService.saveTestResults(all);
+    }
+
+    function vincularTurma() {
+      const code = document.getElementById('prof-turma-code').value.trim().toUpperCase();
+      const users = StorageService.getUsers();
+      const u = users.find(x => x.id === State.currentUser.id);
+      if (u) {
+        u.turmaCode = code;
+        StorageService.saveUsers(users);
+        setCurrentUser(u);
+        alert('Turma vinculada com sucesso!');
+        renderView();
+      }
+    }
+
+    function handleCreateTurma(e) {
+      e.preventDefault();
+      const name = document.getElementById('turma-name').value.trim();
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const turmas = StorageService.getTurmas();
+      turmas.push({ code, name, teacherId: State.currentUser.id });
+      StorageService.saveTurmas(turmas);
+      renderView();
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim().toLowerCase();
+      const pass = document.getElementById('login-pass').value;
+      const users = StorageService.getUsers();
+      const found = users.find(u => u.email.toLowerCase() === email && u.pass === pass);
+
+      if (found) {
+        setCurrentUser(found);
+        navigate(found.role === 'PROFESSOR' ? 'prof_dashboard' : 'lab');
+      } else {
+        const err = document.getElementById('login-error');
+        err.innerText = 'Credenciais inválidas. Verifique seu e-mail e senha institucional.';
+        err.classList.remove('hidden');
+      }
+    }
+
+    function handleRegister(e) {
+      e.preventDefault();
+      const name = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim().toLowerCase();
+      const pass = document.getElementById('reg-pass').value;
+      const role = document.getElementById('reg-role').value;
+      const turma = (document.getElementById('reg-turma').value || '').trim().toUpperCase();
+
+      const users = StorageService.getUsers();
+      const newUser = {
+        id: 'usr_' + Date.now(),
+        name,
+        email,
+        pass,
+        role,
+        verified: true,
+        turmaCode: (role === 'ALUNO') ? turma : null
+      };
+      users.push(newUser);
+      StorageService.saveUsers(users);
+
+      const msg = document.getElementById('reg-msg');
+      msg.className = 'mb-4 p-3 bg-emerald-100 text-emerald-800 text-sm rounded-lg';
+      msg.innerText = 'Cadastro realizado com sucesso! Enviamos a confirmação ao seu e-mail institucional.';
+      msg.classList.remove('hidden');
+
+      setTimeout(() => {
+        setCurrentUser(newUser);
+        navigate(role === 'PROFESSOR' ? 'prof_dashboard' : 'lab');
+      }, 1500);
+    }
+
+    function downloadCfg(filename) {
+      const sampleConfigs = {
+        'rt-borda': `! Configuração RT-BORDA (Cisco 2911)\nhostname RT-BORDA\ninterface Gi0/0\n ip address 203.0.113.2 255.255.255.252\n ip nat outside\n no shutdown\ninterface Gi0/1.10\n encapsulation dot1Q 10\n ip address 192.168.10.1 255.255.255.0\n ip nat inside\ninterface Gi0/1.20\n encapsulation dot1Q 20\n ip address 192.168.20.1 255.255.255.0\n ip nat inside\ninterface Gi0/1.30\n encapsulation dot1Q 30\n ip address 192.168.30.1 255.255.255.0\n ip nat inside\ninterface Gi0/1.100\n encapsulation dot1Q 100\n ip address 192.168.100.1 255.255.255.0\n ip nat inside\n! ACLs de Segurança\nip access-list extended ACL_ALUNOS\n permit ip any 192.168.100.0 0.0.0.255\n deny ip any 192.168.30.0 0.0.0.255\n deny ip any 192.168.40.0 0.0.0.255\n permit ip any any\nend`,
+        'sw-principal': `! Configuração SW-PRINCIPAL (Cisco Catalyst 2960)\nhostname SW-PRINCIPAL\nvlan 10,20,30,40,50,60,99,100\ninterface FastEthernet0/1\n switchport mode trunk\ninterface FastEthernet0/2\n switchport mode trunk\ninterface FastEthernet0/3\n switchport mode trunk\ninterface vlan 99\n ip address 192.168.99.2 255.255.255.0\n no shutdown\nend`,
+        'sw-lab1': `! Configuração SW-LAB1\nhostname SW-LAB1\nvlan 10,99\ninterface FastEthernet0/1\n switchport mode trunk\ninterface range FastEthernet0/2-24\n switchport mode access\n switchport access vlan 10\n switchport port-security\n switchport port-security maximum 2\n switchport port-security violation restrict\nend`,
+        'guia-montagem': `Guia de Montagem Packet Tracer - LabNet Escola\n1. Conecte RT-BORDA Gi0/1 ao SW-PRINCIPAL Gi0/1 em modo Trunk.\n2. Conecte SW-PRINCIPAL Fa0/2 ao SW-LAB1 Fa0/1 e Fa0/3 ao SW-LAB2 Fa0/1.\n3. Configure as subinterfaces dot1Q no roteador.\n4. Valide usando o Roteiro de 25 Testes da plataforma.`
+      };
+
+      const content = sampleConfigs[filename] || 'Arquivo de configuração em elaboração.';
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${filename}.txt`;
+      a.click();
+    }
+
+    // Inicialização do aplicativo
+    window.addEventListener('DOMContentLoaded', () => {
+      StorageService.init();
+      initAuth();
+      renderView();
+    });
+  </script>
+</body>
+</html>
